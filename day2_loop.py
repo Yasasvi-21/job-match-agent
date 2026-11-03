@@ -3,11 +3,38 @@ load_dotenv()
 
 from anthropic import Anthropic
 
+import requests
+import html
+import re
+
 client = Anthropic()  # Reads ANTHROPIC_API_KEY from your environment
 
 def get_resume():
     with open("resume.txt", "r", encoding="utf-8") as file:
         return file.read()
+
+def fetch_posting(company, job_id):
+    url = f"https://boards-api.greenhouse.io/v1/boards/{company}/jobs/{job_id}?content=true"
+
+    try:
+        response = requests.get(url, timeout=10)
+    except requests.RequestException:
+        return "Error: could not reach Greenhouse (network problem)."
+
+    if response.status_code == 404:
+        return f"Error: no job {job_id} found for company '{company}'."
+    if response.status_code != 200:          # hint: the code that means "OK"
+        return f"Error: Greenhouse returned status {response.status_code}."
+
+    data = response.json()
+
+    # Clean the description: undo the escaping, then strip the HTML tags
+    content = html.unescape(data["content"])
+    content = re.sub(r"<[^>]+>", " ", content)
+
+    return f"Title: {data['title']}\nLocation: {data['location']['name']}\n\n{content}"
+
+
 
 tools = [
     {
@@ -18,14 +45,34 @@ tools = [
             "properties": {},
             "required": [],
         },
+    },
+
+    {
+    "name": "fetch_posting",
+    "description": "Fetches one specific job posting from Greenhouse and returns its title, location, and full description as plain text. Use this when you need the requirements of a particular job. Requires the company's board name and the job id.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "company": {
+                "type": "string",
+                "description": "The company's Greenhouse board name, e.g. 'anthropic' or 'airbnb'"
+            },
+            "job_id": {
+                "type": "string",
+                "description": "The job's id number in Greenhouse, e.g. '4123456'"
+            }
+        },
+        "required": ["company", "job_id"]
     }
+    }
+    
 ]
 
 
 # (keep your imports, load_dotenv, client, get_resume(), and tools from day1_tools.py)
 
 messages = [
-    {"role": "user", "content": "Please review my resume."}
+    {"role": "user", "content": "Is this job a good fit for me? Company: anthropic, job id: 5456619008"}
 ]
 
 max_steps = 5
@@ -35,7 +82,7 @@ for step in range(max_steps):
 
     response = client.messages.create(
         model="claude-haiku-5-5",
-        max_tokens=1000,
+        max_tokens=6000,
         tools=tools,
         messages=messages,          #  the history you're building
     )
@@ -65,9 +112,10 @@ for step in range(max_steps):
 
             if block.name == "get_resume":
                 result = get_resume()
+            elif block.name == "fetch_posting":
+                result = fetch_posting(block.input["company"], block.input["job_id"])   # hint: pull company and job_id out of the field you just found
             else:
-                result = f"Error: no tool named {block.name}"           # run your function
-
+                result = f"Error: no tool named {block.name}"
             messages.append({
                 "role": "user",
                 "content": [
