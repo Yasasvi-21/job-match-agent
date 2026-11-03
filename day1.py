@@ -20,4 +20,4 @@ print("Content:", response.content)
 print("Stop Reason:", response.stop_reason)
 print("Usage:", response.usage)
 
-
+print("text: " + response.content[0].text)
