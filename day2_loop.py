@@ -80,7 +80,7 @@ tools = [
             },
             "job_id": {
                 "type": "string",
-                "description": "The job's id number in Greenhouse, e.g. '4123456'"
+                "description": "The job's id number in Greenhouse, e.g. '266290' "
             }
         },
         "required": ["company", "job_id"]
@@ -118,7 +118,7 @@ tools = [
 # (keep your imports, load_dotenv, client, get_resume(), and tools from day1_tools.py)
 
 messages = [
-    {"role": "user", "content": "Is this job a good fit for me? Company: anthropic, job id: 5456619008"}
+    {"role": "user", "content": "Is this job a good fit for me? Company: anthropic, job id:  5432583008"}
 ]
 
 max_steps = 5
@@ -182,7 +182,17 @@ else:
     print("Stopped: hit the step limit without finishing.")
 
 
-print("Job:", assessment["job_title"])
-for item in assessment["requirements"]:
-    print(f"- [{item['status']}] ({item['importance']}) {item['requirement']}")
-print("Score:", score_assessment(assessment))
+if assessment is None:
+    print("No assessment produced. Claude's explanation is above. Check the company and job id, then try again.")
+else:
+    print("Job:", assessment["job_title"])
+    for item in assessment["requirements"]:
+        print(f"- [{item['status']}] ({item['importance']}) {item['requirement']}")
+
+    score = score_assessment(assessment)
+    print("Score:", score)
+
+    if score >= 70:
+        print("Verdict: This job is a good fit for you.")
+    else:
+        print("Verdict: This job is not a good fit for you.")
