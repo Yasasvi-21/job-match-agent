@@ -7,6 +7,9 @@ import requests
 import html
 import re
 
+from datetime import date
+today = date.today().strftime("%B %d, %Y")
+system_prompt = f"Today's date is {today}. ..."
 client = Anthropic()  # Reads ANTHROPIC_API_KEY from your environment
 
 def get_resume():
@@ -34,7 +37,25 @@ def fetch_posting(company, job_id):
 
     return f"Title: {data['title']}\nLocation: {data['location']['name']}\n\n{content}"
 
+def score_assessment(assessment):
+    points = {"met": 1, "partially met": 0.5, "missing": 0}
 
+    req_points, req_count = 0, 0
+    pref_points, pref_count = 0, 0
+
+    for item in assessment["requirements"]:
+        value = points[item["status"]]                 # hint: look up this item's status
+        if item["importance"] == "required":
+            req_points += value
+            req_count += 1
+        else:
+            pref_points+= value 
+            pref_count += 1             # same thing for preferred
+    req_score = req_points / req_count if req_count else 0
+    pref_score = pref_points/pref_count if pref_count else 0                        # same pattern
+
+    final = 100 * (0.7 * req_score + 0.3 * pref_score)
+    return round(final, 1)
 
 tools = [
     {
@@ -64,7 +85,32 @@ tools = [
         },
         "required": ["company", "job_id"]
     }
+    },
+
+    {
+    "name": "submit_assessment",
+    "description": "Submit the final job-fit assessment. Call this once, after reading both the resume and the job posting.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "job_title": {"type": "string"},
+            "requirements": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "requirement": {"type": "string"},
+                        "importance": {"type": "string", "enum": ["required", "preferred"]},
+                        "status": {"type": "string", "enum": ["met", "missing", "partially met"]},
+                        "evidence": {"type": "string", "description": "Exact quote from the resume, or empty if missing"}
+                    },
+                    "required": ["requirement", "importance", "status", "evidence"]
+                }
+            }
+        },
+        "required": ["job_title", "requirements"]
     }
+}
     
 ]
 
@@ -76,6 +122,7 @@ messages = [
 ]
 
 max_steps = 5
+assessment = None
 
 for step in range(max_steps):
     print(f"\n--- API call {step + 1} ---")
@@ -108,9 +155,11 @@ for step in range(max_steps):
 
     for block in response.content:
         if block.type == "tool_use":            # the type of a tool request block
-            print("Claude asked for tool:", block.name)
+            if block.name == "submit_assessment":
+                assessment = block.input
+                break
 
-            if block.name == "get_resume":
+            elif block.name == "get_resume":
                 result = get_resume()
             elif block.name == "fetch_posting":
                 result = fetch_posting(block.input["company"], block.input["job_id"])   # hint: pull company and job_id out of the field you just found
@@ -126,6 +175,14 @@ for step in range(max_steps):
                     }
                 ],
             })
+    if assessment is not None:
+        break
+
 else:
     print("Stopped: hit the step limit without finishing.")
 
+
+print("Job:", assessment["job_title"])
+for item in assessment["requirements"]:
+    print(f"- [{item['status']}] ({item['importance']}) {item['requirement']}")
+print("Score:", score_assessment(assessment))
