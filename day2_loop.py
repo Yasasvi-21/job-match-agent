@@ -7,9 +7,22 @@ import requests
 import html
 import re
 
+
 from datetime import date
 today = date.today().strftime("%B %d, %Y")
-system_prompt = f"Today's date is {today}. ..."
+system_prompt = f"""Today's date is {today}. Use it when judging how old a posting is or how much experience the user has.
+
+You assess how well the user's resume fits one job posting.
+
+Rules:
+1. Only judge requirements that appear in the job posting. Never assume requirements you haven't seen.
+2. For each requirement, mark it "met" only if you can quote the exact line from the resume that proves it.
+3. If the resume shows something related but not the same (e.g. Docker for a Kubernetes requirement), mark it "partially met" and quote the related line. When in doubt between two statuses, choose the lower one.
+4. Use "not assessable" for requirements a resume cannot show, like passion, enthusiasm, or personality traits.
+5. Label each requirement "required" or "preferred", based on how the posting describes it.
+6. Mark dealbreaker true only for hard filters: minimum years of experience, a required degree or certification, or work authorization. Everything else is false.
+7. When done, always call submit_assessment. Do not write a text answer.
+8. Decide required vs. preferred from the posting’s own wording. Items under headings like ‘may also have’, ‘nice to have’, ‘bonus’, or ‘preferred’ are preferred. Everything else is required."""
 client = Anthropic()  # Reads ANTHROPIC_API_KEY from your environment
 
 def get_resume():
@@ -44,6 +57,8 @@ def score_assessment(assessment):
     pref_points, pref_count = 0, 0
 
     for item in assessment["requirements"]:
+        if item["status"] == "not assessable":
+            continue
         value = points[item["status"]]                 # hint: look up this item's status
         if item["importance"] == "required":
             req_points += value
@@ -101,10 +116,14 @@ tools = [
                     "properties": {
                         "requirement": {"type": "string"},
                         "importance": {"type": "string", "enum": ["required", "preferred"]},
-                        "status": {"type": "string", "enum": ["met", "missing", "partially met"]},
-                        "evidence": {"type": "string", "description": "Exact quote from the resume, or empty if missing"}
+                        "status": {"type": "string", "enum": ["met", "missing", "partially met", "not applicable", "not assessable"]},
+                        "evidence": {"type": "string", "description": "Exact quote from the resume, or empty if missing"},
+                        "dealbreaker": {
+                            "type": "boolean",
+                            "description": "True only for hard filters: minimum years of experience, a required degree or certification, or work authorization/location requirements."
+                        }
                     },
-                    "required": ["requirement", "importance", "status", "evidence"]
+                    "required": ["requirement", "importance", "status", "evidence","dealbreaker"]
                 }
             }
         },
@@ -131,6 +150,7 @@ for step in range(max_steps):
         model="claude-haiku-5-5",
         max_tokens=6000,
         tools=tools,
+        system=system_prompt,
         messages=messages,          #  the history you're building
     )
 
@@ -185,6 +205,11 @@ else:
 if assessment is None:
     print("No assessment produced. Claude's explanation is above. Check the company and job id, then try again.")
 else:
+
+    for item in assessment["requirements"]:
+        if re.search(r"\d+\+?\s*years", item["requirement"]):
+            item["importance"] = "required"
+            item["dealbreaker"] = True
     print("Job:", assessment["job_title"])
     for item in assessment["requirements"]:
         print(f"- [{item['status']}] ({item['importance']}) {item['requirement']}")
@@ -192,7 +217,14 @@ else:
     score = score_assessment(assessment)
     print("Score:", score)
 
-    if score >= 70:
+    failed = [item["requirement"] for item in assessment["requirements"]
+          if item["dealbreaker"] and item["status"] == "missing"]
+
+    if failed:
+        print("Verdict: Not a fit. Dealbreakers not met:", ", ".join(failed))
+    elif score >= 70:
         print("Verdict: This job is a good fit for you.")
     else:
         print("Verdict: This job is not a good fit for you.")
+
+print(f"- [{item['status']}] ({item['importance']}{', DEALBREAKER' if item['dealbreaker'] else ''}) {item['requirement']}")
