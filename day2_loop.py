@@ -1,3 +1,5 @@
+from textwrap import shorten
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -22,7 +24,8 @@ Rules:
 5. Label each requirement "required" or "preferred", based on how the posting describes it.
 6. Mark dealbreaker true only for hard filters: minimum years of experience, a required degree or certification, or work authorization. Everything else is false.
 7. When done, always call submit_assessment. Do not write a text answer.
-8. Decide required vs. preferred from the posting’s own wording. Items under headings like ‘may also have’, ‘nice to have’, ‘bonus’, or ‘preferred’ are preferred. Everything else is required."""
+8. Decide required vs. preferred from the posting’s own wording. Items under headings like ‘may also have’, ‘nice to have’, ‘bonus’, or ‘preferred’ are preferred. Everything else is required.
+9. Evidence is a list. Each item must be one exact line copied from the resume. Never combine lines, shorten lists, or reorder words. Use multiple items if you need more than one line."""
 client = Anthropic()  # Reads ANTHROPIC_API_KEY from your environment
 
 def get_resume():
@@ -51,7 +54,7 @@ def fetch_posting(company, job_id):
     return f"Title: {data['title']}\nLocation: {data['location']['name']}\n\n{content}"
 
 def score_assessment(assessment):
-    points = {"met": 1, "partially met": 0.5, "missing": 0}
+    points = {"met": 1, "partially met": 0.5, "missing": 0, "unverified": 0}
 
     req_points, req_count = 0, 0
     pref_points, pref_count = 0, 0
@@ -71,6 +74,37 @@ def score_assessment(assessment):
 
     final = 100 * (0.7 * req_score + 0.3 * pref_score)
     return round(final, 1)
+
+def normalize(text):
+    return " ".join(text.lower().split())
+
+def verify_evidence(assessment, resume_text):
+    clean_resume = normalize(resume_text)
+
+    for item in assessment["requirements"]:
+        if item["status"] in ["met", "partially met"]:
+            quotes = item["evidence"]                    # now a list
+
+            if len(quotes) == 0:
+                bad = ["(no quote given)"]
+            else:
+                bad = [q for q in quotes if normalize(q) not in clean_resume]
+
+            if bad:
+                print(f"⚠️ Unverified: {item['requirement']}")
+                for q in bad:
+                    print(f"   Not found in resume: {q}")
+                item["status"] = "unverified"      
+
+def find_bad_quotes(assessment, resume_text):
+    clean_resume = normalize(resume_text)
+    bad = []
+    for item in assessment["requirements"]:
+        if item["status"] in ["met", "partially met"]:
+            for q in item["evidence"]:
+                if normalize(q) not in clean_resume:
+                    bad.append(f"{item['requirement']}: {q}")
+    return bad        
 
 tools = [
     {
@@ -116,8 +150,12 @@ tools = [
                     "properties": {
                         "requirement": {"type": "string"},
                         "importance": {"type": "string", "enum": ["required", "preferred"]},
-                        "status": {"type": "string", "enum": ["met", "missing", "partially met", "not applicable", "not assessable"]},
-                        "evidence": {"type": "string", "description": "Exact quote from the resume, or empty if missing"},
+                        "status": {"type": "string", "enum": ["met", "missing", "partially met", "not assessable"]},
+                        "evidence": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                             "description": "One or more exact lines copied from the resume. Each must appear in the resume word for word."
+                         },
                         "dealbreaker": {
                             "type": "boolean",
                             "description": "True only for hard filters: minimum years of experience, a required degree or certification, or work authorization/location requirements."
@@ -140,7 +178,7 @@ messages = [
     {"role": "user", "content": "Is this job a good fit for me? Company: anthropic, job id:  5432583008"}
 ]
 
-max_steps = 5
+max_steps = 7
 assessment = None
 
 for step in range(max_steps):
@@ -176,8 +214,14 @@ for step in range(max_steps):
     for block in response.content:
         if block.type == "tool_use":            # the type of a tool request block
             if block.name == "submit_assessment":
-                assessment = block.input
-                break
+                bad = find_bad_quotes(block.input, get_resume())
+                if not bad:
+                    assessment = block.input
+                    break
+                print(f"🔁 {len(bad)} quote(s) not found, asking Claude to fix them")
+                result = ("These evidence quotes were not found word for word in the resume:\n"
+                          + "\n".join(bad)
+                          + "\nResubmit the assessment, copying each quote exactly from one resume line.")
 
             elif block.name == "get_resume":
                 result = get_resume()
@@ -210,6 +254,9 @@ else:
         if re.search(r"\d+\+?\s*years", item["requirement"]):
             item["importance"] = "required"
             item["dealbreaker"] = True
+
+    verify_evidence(assessment, get_resume())
+
     print("Job:", assessment["job_title"])
     for item in assessment["requirements"]:
         print(f"- [{item['status']}] ({item['importance']}) {item['requirement']}")
@@ -218,7 +265,7 @@ else:
     print("Score:", score)
 
     failed = [item["requirement"] for item in assessment["requirements"]
-          if item["dealbreaker"] and item["status"] == "missing"]
+          if item["dealbreaker"] and item["status"] in ["missing", "unverified"]]
 
     if failed:
         print("Verdict: Not a fit. Dealbreakers not met:", ", ".join(failed))
@@ -227,4 +274,4 @@ else:
     else:
         print("Verdict: This job is not a good fit for you.")
 
-print(f"- [{item['status']}] ({item['importance']}{', DEALBREAKER' if item['dealbreaker'] else ''}) {item['requirement']}")
+#print(f"- [{item['status']}] ({item['importance']}{', DEALBREAKER' if item['dealbreaker'] else ''}) {item['requirement']}")
