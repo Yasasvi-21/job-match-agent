@@ -1,0 +1,58 @@
+Title: Machine Learning Engineer 
+Location: New York 
+
+   Who We Are  
+ Good Inside is redefining parenting - not as something that should “just come naturally,” but as a skill to learn and practice. Founded by Dr. Becky Kennedy and Dr. Erica Belsky, we combine sturdy leadership with innovative technology to give parents personalized guidance, AI-powered support, and a global community. 
+ Our mission: help parents raise resilient, confident kids in a changing world. We’ve already reached millions, and we’re just getting started.&nbsp; We’re refining our product and expanding our reach to empower even more families. 
+ We’re looking for bold, high-ownership problem-solvers who want to build something new, tackle big challenges, and be at the forefront of change.    The Opportunity  
+ Good Inside is seeking a Machine Learning Engineer to join our Engineering team. This is  not  a research or data science role – we’re looking for a strong backend engineer who has hands-on experience shipping ML-powered features in production. You’ll work at the intersection of backend systems and machine learning, building the infrastructure and services that bring personalized, intelligent experiences to our users. 
+ You should be comfortable working with ML APIs, understanding core ML concepts, and integrating models into reliable, scalable backend systems. Your primary identity is as a software engineer – someone who writes clean, production-grade code – with the added ability to reason about ML systems and bring them to life in our product. 
+ You will collaborate closely with cross-functional partners, including product, design, mobile, and data teams, to build high-quality features that serve our users’ needs. Your ability to blend backend engineering excellence with practical ML knowledge will be essential as we continue to evolve and scale the Good Inside platform. 
+  What You’ll Own  
+ 
+ Design, build, and maintain backend services and APIs that power ML-driven features across the Good Inside platform 
+ Integrate and orchestrate ML models and third-party ML APIs (e.g., LLM providers, recommendation engines, embeddings services) into production systems 
+ Build data pipelines and infrastructure to support model serving, feature storage, and real-time personalization 
+ Collaborate closely with product, mobile, and design teams to translate ML capabilities into user-facing features 
+ Own the reliability, performance, and scalability of ML-adjacent backend systems 
+ Develop clean, maintainable, and well-documented code aligned with defined project scope 
+ Provide clear documentation of architectural decisions, implementation details, and handoff materials upon project completion 
+ Provide input on feature scope and sequencing to support timely and successful delivery of project deliverables 
+ 
+  Your Skills and Experience  
+ 
+ 5+ years of professional software engineering experience, with a strong focus on backend development 
+ Demonstrated experience shipping ML-powered features or products in a production environment 
+ Working knowledge of ML concepts (e.g., embeddings, classification, recommendation systems, LLMs) – you don’t need to train models, but you need to understand how they work and when to use them 
+ Hands-on experience integrating ML APIs and services (e.g., OpenAI, Anthropic, ElevenLabs, HuggingFace, AWS SageMaker, or similar) 
+ Proficiency in Python and/or another backend language (Go, Java, TypeScript/Node, etc.) 
+ Experience with cloud infrastructure (AWS, GCP, or Azure) and containerized deployments 
+ Familiarity with data stores and pipelines relevant to ML workloads (e.g., vector databases, feature stores, streaming systems) 
+ Excellent interpersonal, verbal, and written communication skills 
+ Strong collaboration abilities and cross-functional relationship-building 
+ Self-starter with strong analytical and problem-solving skills 
+ Ability to stay organized and deliver results in a fast-paced, changing environment 
+ Computer Science degree or equivalent 
+ At least 2 years of experience in house as a ML Engineer&nbsp; 
+ 
+  Preferred Experience  
+ 
+ Startup Growth Experience: This isn’t your first time helping a high-growth startup scale. You are excited by the challenge and love creating and learning from the bottom up. 
+ Experience with LLM Application Development: You’ve built applications on top of large language models – prompt engineering, RAG pipelines, conversational AI, or similar – and understand the practical challenges of shipping LLM-powered features. 
+ Infrastructure &amp; DevOps Fluency: Experience with CI/CD, monitoring, observability, and production-readiness for ML systems. 
+ Prior experience with recommendation systems, personalization engines, or content ranking algorithms in a user-facing product. 
+ 
+  What We Offer  
+ 
+ Competitive Compensation: base salary for this role will be $205k - $235k&nbsp; 
+ Company Equity 
+ Comprehensive benefits package 
+ 401k + Company match 
+ Time off to recharge 
+ A high-ownership, high-performance, high-collaboration culture 
+    Equal Employment Opportunity  
+  Good Inside is an equal opportunity employer and as such, we do not discriminate on the basis of race, color, religion, sex, sexual orientation, gender identity, national origin, age, disability, or any other characteristic protected by applicable laws.  
+  We are dedicated to growing a diverse team of highly talented people. As much as we believe in focusing on the parent behind the parenting and the child behind the behavior, we believe in focusing on the    person    behind the job. We’re dedicated to building a workplace where we give each other the strategies, support, and space we each need to thrive—believing in and bringing out the good inside of everyone..  
+  If you require any accommodations during the recruitment process, whether it be alternate forms of material, accessible meeting rooms, etc., please let us know and we will work with you to meet your needs.  
+  For information about Good Inside's privacy practices, see our&nbsp;  Privacy Policy  .&nbsp;  California applicants, please also see our&nbsp;  CA Applicant Privacy Notice  .  
+ &nbsp;  

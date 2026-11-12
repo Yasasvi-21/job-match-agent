@@ -1,0 +1,53 @@
+Title: JUNIOR AI ENGINEER
+Location: Hanoi, Hanoi, Vietnam
+
+  Job Description: &nbsp; 
+ 
+ Participate in the development of neural network, machine learning, NLP, and big data technologies for company products such as chatbots, search engines, and data analysis systems.&nbsp; 
+ 
+ 
+ Collect, clean, and prepare large-scale datasets for training AI models.&nbsp; 
+ 
+ 
+ Research and apply machine learning, deep learning, and big data technologies to build and enhance AI solutions.&nbsp; 
+ 
+ 
+ Evaluate model performance and propose optimization solutions.&nbsp; 
+ Develop and maintain AI related functions and features using C# and Python.&nbsp; 
+ 
+ 
+ Support other team members in projects and products implementation, particularly in integrating AI with big data technologies.&nbsp; 
+ Leverage and integration with AI services in cloud platforms, such as Google, AWS, Azure. 
+ 
+  Requirements: &nbsp; 
+ 
+ Bachelor’s degree in computer science, information technology, data science or a related field.&nbsp; 
+ 
+ 
+ Solid understanding of probability and statistics, discrete mathematics, and linear algebra.&nbsp; 
+ 
+ 
+ Knowledge of algorithms and data structures.&nbsp; 
+ 
+ 
+ Experience with at least one framework or library (e.g., TensorFlow, PyTorch) and one programming language (Python and C# preferred).&nbsp; 
+ 
+ 
+ Knowledge of big data processing tools like Hadoop and Spark, including concepts such as MapReduce and data parallelism.&nbsp; 
+ 
+ 
+ Strong learning attitude, enthusiasm for research and a passion for exploring new AI and big data technologies.&nbsp; 
+ 
+ 
+ Good communication skills and ability to work effectively in a team.&nbsp; 
+ 
+ 
+ Good English communication.&nbsp; 
+ 
+  Preferred: &nbsp; 
+ 
+ Experience participating in neural network, machine learning, NLP, big data related projects.&nbsp; 
+ 
+ 
+ Experience working with distributed databases, vector database and big data storage solutions. 
+     Any personal data you share with us during the application process will be processed strictly in compliance with applicable data protection laws and our  Privacy Notice .    

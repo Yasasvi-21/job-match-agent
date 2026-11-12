@@ -173,105 +173,105 @@ tools = [
 
 
 # (keep your imports, load_dotenv, client, get_resume(), and tools from day1_tools.py)
-
-messages = [
+if __name__ == "__main__":
+    messages = [
     {"role": "user", "content": "Is this job a good fit for me? Company: anthropic, job id:  5432583008"}
-]
+    ]
 
-max_steps = 7
-assessment = None
+    max_steps = 7
+    assessment = None
 
-for step in range(max_steps):
-    print(f"\n--- API call {step + 1} ---")
+    for step in range(max_steps):
+        print(f"\n--- API call {step + 1} ---")
 
-    response = client.messages.create(
-        model="claude-haiku-5-5",
-        max_tokens=6000,
-        tools=tools,
-        system=system_prompt,
-        messages=messages,          #  the history you're building
-    )
+        response = client.messages.create(
+            model="claude-haiku-5-5",
+            max_tokens=6000,
+            tools=tools,
+            system=system_prompt,
+            messages=messages,          #  the history you're building
+        )
 
-    print("Stop reason:", response.stop_reason)
+        print("Stop reason:", response.stop_reason)
 
-    # Case 1: Claude is done
-    if response.stop_reason == "end_turn":      #  which stop_reason means "finished"?
+        # Case 1: Claude is done
+        if response.stop_reason == "end_turn":      #  which stop_reason means "finished"?
+            for block in response.content:
+                if block.type == "text":
+                    print("FINAL ANSWER:\n", block.text)   #  Day 1, the field holding the words
+            break
+
+        if response.stop_reason == "max_tokens":  
+            for block in response.content:
+                if block.type == "text":
+                    print("FINAL ANSWER:\n", block.text)   #  Day 1, the field holding the words
+            print("Stopped: hit the max_tokens limit without finishing.")
+            break
+
+        # Case 2: Claude wants a tool
+        messages.append({"role": "assistant", "content": response.content})   # Claude's whole reply box
+
         for block in response.content:
-            if block.type == "text":
-                print("FINAL ANSWER:\n", block.text)   #  Day 1, the field holding the words
-        break
+            if block.type == "tool_use":            # the type of a tool request block
+                if block.name == "submit_assessment":
+                    bad = find_bad_quotes(block.input, get_resume())
+                    if not bad:
+                        assessment = block.input
+                        break
+                    print(f"🔁 {len(bad)} quote(s) not found, asking Claude to fix them")
+                    result = ("These evidence quotes were not found word for word in the resume:\n"
+                            + "\n".join(bad)
+                            + "\nResubmit the assessment, copying each quote exactly from one resume line.")
 
-    if response.stop_reason == "max_tokens":  
-        for block in response.content:
-            if block.type == "text":
-                print("FINAL ANSWER:\n", block.text)   #  Day 1, the field holding the words
-        print("Stopped: hit the max_tokens limit without finishing.")
-        break
+                elif block.name == "get_resume":
+                    result = get_resume()
+                elif block.name == "fetch_posting":
+                    result = fetch_posting(block.input["company"], block.input["job_id"])   # hint: pull company and job_id out of the field you just found
+                else:
+                    result = f"Error: no tool named {block.name}"
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,   # the request id
+                            "content": result,
+                        }
+                    ],
+                })
+        if assessment is not None:
+            break
 
-    # Case 2: Claude wants a tool
-    messages.append({"role": "assistant", "content": response.content})   # Claude's whole reply box
-
-    for block in response.content:
-        if block.type == "tool_use":            # the type of a tool request block
-            if block.name == "submit_assessment":
-                bad = find_bad_quotes(block.input, get_resume())
-                if not bad:
-                    assessment = block.input
-                    break
-                print(f"🔁 {len(bad)} quote(s) not found, asking Claude to fix them")
-                result = ("These evidence quotes were not found word for word in the resume:\n"
-                          + "\n".join(bad)
-                          + "\nResubmit the assessment, copying each quote exactly from one resume line.")
-
-            elif block.name == "get_resume":
-                result = get_resume()
-            elif block.name == "fetch_posting":
-                result = fetch_posting(block.input["company"], block.input["job_id"])   # hint: pull company and job_id out of the field you just found
-            else:
-                result = f"Error: no tool named {block.name}"
-            messages.append({
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block.id,   # the request id
-                        "content": result,
-                    }
-                ],
-            })
-    if assessment is not None:
-        break
-
-else:
-    print("Stopped: hit the step limit without finishing.")
-
-
-if assessment is None:
-    print("No assessment produced. Claude's explanation is above. Check the company and job id, then try again.")
-else:
-
-    for item in assessment["requirements"]:
-        if re.search(r"\d+\+?\s*years", item["requirement"]):
-            item["importance"] = "required"
-            item["dealbreaker"] = True
-
-    verify_evidence(assessment, get_resume())
-
-    print("Job:", assessment["job_title"])
-    for item in assessment["requirements"]:
-        print(f"- [{item['status']}] ({item['importance']}) {item['requirement']}")
-
-    score = score_assessment(assessment)
-    print("Score:", score)
-
-    failed = [item["requirement"] for item in assessment["requirements"]
-          if item["dealbreaker"] and item["status"] in ["missing", "unverified"]]
-
-    if failed:
-        print("Verdict: Not a fit. Dealbreakers not met:", ", ".join(failed))
-    elif score >= 70:
-        print("Verdict: This job is a good fit for you.")
     else:
-        print("Verdict: This job is not a good fit for you.")
+        print("Stopped: hit the step limit without finishing.")
 
-#print(f"- [{item['status']}] ({item['importance']}{', DEALBREAKER' if item['dealbreaker'] else ''}) {item['requirement']}")
+
+    if assessment is None:
+        print("No assessment produced. Claude's explanation is above. Check the company and job id, then try again.")
+    else:
+
+        for item in assessment["requirements"]:
+            if re.search(r"\d+\+?\s*years", item["requirement"]):
+                item["importance"] = "required"
+                item["dealbreaker"] = True
+
+        verify_evidence(assessment, get_resume())
+
+        print("Job:", assessment["job_title"])
+        for item in assessment["requirements"]:
+            print(f"- [{item['status']}] ({item['importance']}) {item['requirement']}")
+
+        score = score_assessment(assessment)
+        print("Score:", score)
+
+        failed = [item["requirement"] for item in assessment["requirements"]
+            if item["dealbreaker"] and item["status"] in ["missing", "unverified"]]
+
+        if failed:
+            print("Verdict: Not a fit. Dealbreakers not met:", ", ".join(failed))
+        elif score >= 70:
+            print("Verdict: This job is a good fit for you.")
+        else:
+            print("Verdict: This job is not a good fit for you.")
+
+    #print(f"- [{item['status']}] ({item['importance']}{', DEALBREAKER' if item['dealbreaker'] else ''}) {item['requirement']}")
