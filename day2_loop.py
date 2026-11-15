@@ -63,25 +63,17 @@ def load_saved_posting(company, job_id):
 
 def score_assessment(assessment):
     points = {"met": 1, "partially met": 0.5, "missing": 0, "unverified": 0}
+    weights = {"required": 2, "preferred": 1}
 
-    req_points, req_count = 0, 0
-    pref_points, pref_count = 0, 0
-
+    earned, possible = 0, 0
     for item in assessment["requirements"]:
         if item["status"] == "not assessable":
             continue
-        value = points[item["status"]]                 # hint: look up this item's status
-        if item["importance"] == "required":
-            req_points += value
-            req_count += 1
-        else:
-            pref_points+= value 
-            pref_count += 1             # same thing for preferred
-    req_score = req_points / req_count if req_count else 0
-    pref_score = pref_points/pref_count if pref_count else 0                        # same pattern
+        w = weights[item["importance"]]
+        earned += points[item["status"]] * w      # hint: scale the points by the weight
+        possible += w                             # hint: the most this item could earn
 
-    final = 100 * (0.7 * req_score + 0.3 * pref_score)
-    return round(final, 1)
+    return round(100 * earned / possible, 1) if possible else 0
 
 def normalize(text):
     return " ".join(text.lower().split())
