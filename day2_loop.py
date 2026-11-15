@@ -8,6 +8,7 @@ from anthropic import Anthropic
 import requests
 import html
 import re
+import os 
 
 
 from datetime import date
@@ -52,6 +53,13 @@ def fetch_posting(company, job_id):
     content = re.sub(r"<[^>]+>", " ", content)
 
     return f"Title: {data['title']}\nLocation: {data['location']['name']}\n\n{content}"
+
+def load_saved_posting(company, job_id):
+    path = f"golden/{company}_{job_id}.txt"
+    if not os.path.exists(path):
+        return f"Error: no job {job_id} found for company '{company}'."
+    with open(path, encoding="utf-8") as f:
+        return f.read()
 
 def score_assessment(assessment):
     points = {"met": 1, "partially met": 0.5, "missing": 0, "unverified": 0}
@@ -173,24 +181,26 @@ tools = [
 
 
 # (keep your imports, load_dotenv, client, get_resume(), and tools from day1_tools.py)
-if __name__ == "__main__":
+def run_agent(company, job_id, fetch_fn=fetch_posting):
     messages = [
-    {"role": "user", "content": "Is this job a good fit for me? Company: anthropic, job id:  5432583008"}
+    {"role": "user", "content": f"Is this job a good fit for me? Company: {company}, job id: {job_id}"}
     ]
 
     max_steps = 7
     assessment = None
+    api_calls = 0
 
     for step in range(max_steps):
         print(f"\n--- API call {step + 1} ---")
 
         response = client.messages.create(
             model="claude-haiku-5-5",
-            max_tokens=6000,
+            max_tokens=16000,
             tools=tools,
             system=system_prompt,
             messages=messages,          #  the history you're building
         )
+        api_calls += 1
 
         print("Stop reason:", response.stop_reason)
 
@@ -226,7 +236,7 @@ if __name__ == "__main__":
                 elif block.name == "get_resume":
                     result = get_resume()
                 elif block.name == "fetch_posting":
-                    result = fetch_posting(block.input["company"], block.input["job_id"])   # hint: pull company and job_id out of the field you just found
+                    result = fetch_fn(block.input["company"], block.input["job_id"])   # hint: pull company and job_id out of the field you just found
                 else:
                     result = f"Error: no tool named {block.name}"
                 messages.append({
@@ -247,7 +257,9 @@ if __name__ == "__main__":
 
 
     if assessment is None:
-        print("No assessment produced. Claude's explanation is above. Check the company and job id, then try again.")
+        print("No assessment produced. Claude's explanation is above.")
+        return {"verdict": "error", "score": None, "failed_dealbreakers": [],
+                "api_calls": api_calls, "assessment": None}
     else:
 
         for item in assessment["requirements"]:
@@ -267,11 +279,18 @@ if __name__ == "__main__":
         failed = [item["requirement"] for item in assessment["requirements"]
             if item["dealbreaker"] and item["status"] in ["missing", "unverified"]]
 
-        if failed:
-            print("Verdict: Not a fit. Dealbreakers not met:", ", ".join(failed))
+        if failed:                                                     # CHANGE 6
+            verdict = "not fit"
         elif score >= 70:
-            print("Verdict: This job is a good fit for you.")
+            verdict = "fit"
         else:
-            print("Verdict: This job is not a good fit for you.")
+            verdict = "not fit"
 
+    return {"verdict": verdict, "score": score, "failed_dealbreakers": failed,
+            "api_calls": api_calls, "assessment": assessment}
     #print(f"- [{item['status']}] ({item['importance']}{', DEALBREAKER' if item['dealbreaker'] else ''}) {item['requirement']}")
+
+
+if __name__ == "__main__":
+    result = run_agent("stripe", "8144196", fetch_fn=load_saved_posting)
+    print(result["verdict"], result["score"], result["failed_dealbreakers"], result["api_calls"])
