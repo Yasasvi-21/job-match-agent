@@ -1,7 +1,8 @@
-from textwrap import shorten
-
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
+BASE = Path(__file__).parent      # the folder day2_loop.py is in, wherever it was launched from
+load_dotenv(BASE / ".env")
 
 from anthropic import Anthropic
 
@@ -16,7 +17,7 @@ today = date.today().strftime("%B %d, %Y")
 
 import json
 
-with open("profile.json", encoding="utf-8") as f:
+with open(BASE / "profile.json", encoding="utf-8") as f:
     profile = json.load(f)
 
 
@@ -43,7 +44,7 @@ Candidate profile (facts the resume does not show; treat them as true):
 client = Anthropic()  # Reads ANTHROPIC_API_KEY from your environment
 
 def get_resume():
-    with open("resume.txt", "r", encoding="utf-8") as file:
+    with open(BASE / "resume.txt", "r", encoding="utf-8") as file:
         return file.read()
 
 def fetch_posting(company, job_id):
@@ -68,7 +69,7 @@ def fetch_posting(company, job_id):
     return f"Title: {data['title']}\nLocation: {data['location']['name']}\n\n{content}"
 
 def load_saved_posting(company, job_id):
-    path = f"golden/{company}_{job_id}.txt"
+    path = BASE / "golden" / f"{company}_{job_id}.txt"
     if not os.path.exists(path):
         return f"Error: no job {job_id} found for company '{company}'."
     with open(path, encoding="utf-8") as f:
