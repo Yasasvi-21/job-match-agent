@@ -13,6 +13,13 @@ import os
 
 from datetime import date
 today = date.today().strftime("%B %d, %Y")
+
+import json
+
+with open("profile.json", encoding="utf-8") as f:
+    profile = json.load(f)
+
+
 system_prompt = f"""Today's date is {today}. Use it when judging how old a posting is or how much experience the user has.
 
 You assess how well the user's resume fits one job posting.
@@ -26,7 +33,13 @@ Rules:
 6. Mark dealbreaker true only for hard filters: minimum years of experience, a required degree or certification, or work authorization. Everything else is false.
 7. When done, always call submit_assessment. Do not write a text answer.
 8. Decide required vs. preferred from the posting’s own wording. Items under headings like ‘may also have’, ‘nice to have’, ‘bonus’, or ‘preferred’ are preferred. Everything else is required.
-9. Evidence is a list. Each item must be one exact line copied from the resume. Never combine lines, shorten lists, or reorder words. Use multiple items if you need more than one line."""
+9. Evidence is a list. Each item must be one exact line copied from the resume. Never combine lines, shorten lists, or reorder words. Use multiple items if you need more than one line.
+
+Candidate profile (facts the resume does not show; treat them as true):
+{json.dumps(profile, indent=2)}
+
+10. Use the candidate profile for location, visa sponsorship, graduation date, start date, and role type. If the candidate cannot meet a job's location, sponsorship, graduation-window, or start-date requirement, mark it "missing" and dealbreaker true.
+11. If the job's role type is listed in not_interested_in, or is clearly outside target_roles, add a requirement "Role type: <the role type>" with importance "required", status "missing", and dealbreaker true."""
 client = Anthropic()  # Reads ANTHROPIC_API_KEY from your environment
 
 def get_resume():
@@ -104,7 +117,10 @@ def find_bad_quotes(assessment, resume_text):
             for q in item["evidence"]:
                 if normalize(q) not in clean_resume:
                     bad.append(f"{item['requirement']}: {q}")
-    return bad        
+    return bad     
+   
+def get_sources():
+    return get_resume() + "\n" + json.dumps(profile, indent=2)
 
 tools = [
     {
@@ -216,14 +232,14 @@ def run_agent(company, job_id, fetch_fn=fetch_posting):
         for block in response.content:
             if block.type == "tool_use":            # the type of a tool request block
                 if block.name == "submit_assessment":
-                    bad = find_bad_quotes(block.input, get_resume())
+                    bad = find_bad_quotes(block.input, get_sources())
                     if not bad:
                         assessment = block.input
                         break
                     print(f"🔁 {len(bad)} quote(s) not found, asking Claude to fix them")
-                    result = ("These evidence quotes were not found word for word in the resume:\n"
-                            + "\n".join(bad)
-                            + "\nResubmit the assessment, copying each quote exactly from one resume line.")
+                    result = ("These evidence quotes were not found word for word in the resume or candidate profile:\n"
+                                  + "\n".join(bad)
+                                  + "\nResubmit the assessment, copying each quote exactly from one line of the resume or profile.")
 
                 elif block.name == "get_resume":
                     result = get_resume()
@@ -248,7 +264,7 @@ def run_agent(company, job_id, fetch_fn=fetch_posting):
         print("Stopped: hit the step limit without finishing.")
 
 
-    if assessment is None:
+    if assessment is None or len(assessment["requirements"]) == 0:
         print("No assessment produced. Claude's explanation is above.")
         return {"verdict": "error", "score": None, "failed_dealbreakers": [],
                 "api_calls": api_calls, "assessment": None}
@@ -259,7 +275,7 @@ def run_agent(company, job_id, fetch_fn=fetch_posting):
                 item["importance"] = "required"
                 item["dealbreaker"] = True
 
-        verify_evidence(assessment, get_resume())
+        verify_evidence(assessment, get_sources())
 
         print("Job:", assessment["job_title"])
         for item in assessment["requirements"]:

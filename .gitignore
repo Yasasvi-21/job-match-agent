@@ -2,3 +2,4 @@
 venv/
 __pycache__/
 resume.txt
+profile.json
