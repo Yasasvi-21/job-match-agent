@@ -13,7 +13,7 @@ for row in rows:
     r = run_agent(row["company"], row["job_id"], fetch_fn=load_saved_posting)
     match = r["verdict"] == row["my_label"]
     results.append({**row, "agent": r["verdict"], "score": r["score"], "match": match,
-                    "failed": "; ".join(r["failed_dealbreakers"]), "api_calls": r["api_calls"], "seconds": r["seconds"], "cost": r["cost"]})
+                    "failed": "; ".join(r["failed_dealbreakers"]), "api_calls": r["api_calls"], "seconds": r["seconds"], "cost": r["cost"],"injection_warning": r["injection_warning"],})
     runs.append({
         "job": f"{row['company']}_{row['job_id']}",
         "seconds": r["seconds"],
@@ -49,6 +49,7 @@ print(f"Recall (fit):     {tp / (tp + fn) if tp + fn else 0:.0%}   ← good jobs
 print(f"Precision (fit):  {tp / (tp + fp) if tp + fp else 0:.0%}   ← 'fit' calls that were right")
 print(f"Missed good jobs: {[x['company'] for x in judged if x['my_label']=='fit' and x['agent']!='fit']}")
 print(f"False alarms:     {[x['company'] for x in judged if x['my_label']=='not fit' and x['agent']=='fit']}")
+print(f"Injection warnings: {[x['company'] for x in results if x['injection_warning']]}")
 
 with open("eval_results.csv", "w", newline="", encoding="utf-8") as f:
     w = csv.DictWriter(f, fieldnames=results[0].keys())

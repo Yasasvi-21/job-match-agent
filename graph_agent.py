@@ -21,6 +21,11 @@ BORDER_LOW = 60        # below this: confident "not fit"
 BORDER_HIGH = 80       # at or above this: confident "fit"; in between: "borderline"
 PRICE_IN = 0.10 / 1_000_000       # $ per input token
 PRICE_OUT = 0.50 / 1_000_000      # $ per output token
+MAX_TOOLS_PER_TURN = 3
+SUSPICIOUS = re.compile(
+    r"ignore (all )?(previous|prior) instructions|system note|"
+    r"(automated|AI) screening|mark every requirement",
+    re.IGNORECASE)
 
 
 class AgentState(TypedDict):
@@ -37,6 +42,7 @@ class AgentState(TypedDict):
     input_tokens: int
     output_tokens: int
     seconds: float
+    injection_warning: bool
 
 
 def call_claude(state: AgentState) -> dict:
@@ -138,6 +144,7 @@ def human_review(state: AgentState) -> dict:
         "verdict": state["verdict"],
         "score": state["score"],
         "failed_dealbreakers": state["failed_dealbreakers"],
+        "injection_warning": state["injection_warning"],
     })
     return {"human_decision": answer["decision"], "human_note": answer["note"]}
 
@@ -147,17 +154,27 @@ def build_graph(fetch_fn=fetch_posting, with_review=True, checkpointer=None):
     def run_tools(state: AgentState) -> dict:
         last = state["messages"][-1]
         results = []
+        warning = state["injection_warning"]
+        count = 0
         for b in last["content"]:
             if b["type"] != "tool_use":
                 continue                     # skip text and thinking blocks
-            if b["name"] == "get_resume":
+            count += 1
+            if count > MAX_TOOLS_PER_TURN:                       # Defense 3: cap
+                result = "Error: too many tool calls in one turn. Skipped."
+            elif b["name"] == "get_resume":
                 result = get_resume()
             elif b["name"] == "fetch_posting":
-                result = fetch_fn(b["input"]["company"], b["input"]["job_id"])
+                text = fetch_fn(b["input"]["company"], b["input"]["job_id"])
+                text = text.replace("</job_posting>", "")
+                if SUSPICIOUS.search(text):                       # Defense 2: detect
+                    warning = True
+                result = f"<job_posting>\n{text}\n</job_posting>" # Defense 1: label
             else:
                 result = f"Error: no tool named {b['name']}"
             results.append({"type": "tool_result", "tool_use_id": b["id"], "content": result})
-        return {"messages": state["messages"] + [{"role": "user", "content": results}]}
+        return {"messages": state["messages"] + [{"role": "user", "content": results}],
+                "injection_warning": warning}
 
     graph = StateGraph(AgentState)
     graph.add_node("call_claude", call_claude)
@@ -193,6 +210,7 @@ def start_state(company, job_id):
         "failed_dealbreakers": [], "verdict": None,
         "human_decision": None, "human_note": None,
         "input_tokens": 0, "output_tokens": 0, "seconds": 0.0,
+        "injection_warning": False,
     }
 
 
@@ -205,7 +223,7 @@ def run_graph_agent(company, job_id, fetch_fn=fetch_posting):
             "failed_dealbreakers": result["failed_dealbreakers"],
             "api_calls": result["api_calls"], "assessment": result["assessment"],
             "input_tokens": result["input_tokens"], "output_tokens": result["output_tokens"],
-            "seconds": round(result["seconds"], 1), "cost": cost}
+            "seconds": round(result["seconds"], 1), "cost": cost,"injection_warning": result["injection_warning"],}
 
 
 if __name__ == "__main__":
