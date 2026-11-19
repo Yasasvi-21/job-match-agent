@@ -4,6 +4,10 @@ from langgraph.graph import StateGraph, START, END
 import copy
 import re
 
+from langgraph.types import interrupt, Command
+from langgraph.checkpoint.memory import InMemorySaver
+
+
 from day2_loop import (client, tools, system_prompt, get_resume, fetch_posting,
                        load_saved_posting, get_sources, find_bad_quotes,
                        verify_evidence, score_assessment)
@@ -17,6 +21,10 @@ class AgentState(TypedDict):
     score: float | None
     failed_dealbreakers: list
     verdict: str | None
+    human_decision: str | None
+    human_note: str | None
+
+
 
 def call_claude(state: AgentState) -> dict:
     response = client.messages.create(
@@ -98,7 +106,18 @@ def score_and_verdict(state: AgentState) -> dict:
 def end_error(state: AgentState) -> dict:
     return {"verdict": "error"}
 
-def build_graph(fetch_fn=fetch_posting):
+
+def human_review(state: AgentState) -> dict:
+    answer = interrupt({
+        "job": state["assessment"]["job_title"],
+        "verdict": state["verdict"],
+        "score": state["score"],
+        "failed_dealbreakers": state["failed_dealbreakers"],
+    })
+    return {"human_decision": answer["decision"], "human_note": answer["note"]}
+
+
+def build_graph(fetch_fn=fetch_posting, with_review=True):
 
     def run_tools(state: AgentState) -> dict:
         last = state["messages"][-1]
@@ -129,23 +148,44 @@ def build_graph(fetch_fn=fetch_posting):
     graph.add_edge("run_tools", "call_claude")                      # plain arrow: always back to Claude
     graph.add_conditional_edges("check_quotes", route_after_check,
                                 ["score_and_verdict", "call_claude", "end_error"]) # a switch: retry, score, or stop
-    graph.add_edge("score_and_verdict", END)                        # where does a finished run go?
+
+    if with_review:
+        graph.add_node("human_review", human_review)
+        graph.add_edge("score_and_verdict", "human_review")
+        graph.add_edge("human_review", END)
+    else:
+        graph.add_edge("score_and_verdict", END)
     graph.add_edge("end_error", END)
     
 
-    return graph.compile()
+    return graph.compile(checkpointer=InMemorySaver())
 
 if __name__ == "__main__":
     company, job_id = "stripe", "8144196"
-    agent = build_graph(fetch_fn=load_saved_posting)
+    agent = build_graph(fetch_fn=load_saved_posting, with_review=True)
+    config = {"configurable": {"thread_id": f"{company}-{job_id}"}}
 
-    result = agent.invoke({
+    start = {
         "company": company, "job_id": job_id,
         "messages": [{"role": "user",
                       "content": f"Is this job a good fit for me? Company: {company}, job id: {job_id}"}],
         "assessment": None, "api_calls": 0, "score": None,
         "failed_dealbreakers": [], "verdict": None,
-    })
-    print(result["verdict"], result["score"], result["failed_dealbreakers"], result["api_calls"])
+        "human_decision": None, "human_note": None,
+    }
+    result = agent.invoke(start, config)
 
-    print(agent.get_graph().draw_mermaid())      # bonus: LangGraph draws your graph
+    if "__interrupt__" in result:
+        paused = result["__interrupt__"][0].value
+        print("\n⏸  Agent paused for your review:")
+        for key, value in paused.items():
+            print(f"   {key}: {value}")
+        print("   API calls so far:", result["api_calls"])
+
+        decision = input("\napprove / fit / not fit: ").strip()
+        note = input("note (why): ").strip()
+        result = agent.invoke(Command(resume={"decision": decision, "note": note}), config)
+
+    print("\nAgent verdict:", result["verdict"])
+    print("Your decision:", result["human_decision"], "|", result["human_note"])
+    print("Total API calls:", result["api_calls"])
