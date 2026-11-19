@@ -117,7 +117,7 @@ def human_review(state: AgentState) -> dict:
     return {"human_decision": answer["decision"], "human_note": answer["note"]}
 
 
-def build_graph(fetch_fn=fetch_posting, with_review=True):
+def build_graph(fetch_fn=fetch_posting, with_review=True , checkpointer=None):
 
     def run_tools(state: AgentState) -> dict:
         last = state["messages"][-1]
@@ -158,14 +158,15 @@ def build_graph(fetch_fn=fetch_posting, with_review=True):
     graph.add_edge("end_error", END)
     
 
-    return graph.compile(checkpointer=InMemorySaver())
+    return graph.compile(checkpointer= checkpointer or InMemorySaver())
 
-if __name__ == "__main__":
-    company, job_id = "stripe", "8144196"
-    agent = build_graph(fetch_fn=load_saved_posting, with_review=True)
-    config = {"configurable": {"thread_id": f"{company}-{job_id}"}}
+import sqlite3
+import sys
+from langgraph.checkpoint.sqlite import SqliteSaver
+from day2_loop import BASE
 
-    start = {
+def start_state(company, job_id):
+    return {
         "company": company, "job_id": job_id,
         "messages": [{"role": "user",
                       "content": f"Is this job a good fit for me? Company: {company}, job id: {job_id}"}],
@@ -173,19 +174,29 @@ if __name__ == "__main__":
         "failed_dealbreakers": [], "verdict": None,
         "human_decision": None, "human_note": None,
     }
-    result = agent.invoke(start, config)
 
-    if "__interrupt__" in result:
+if __name__ == "__main__":
+    mode, company, job_id = sys.argv[1], sys.argv[2], sys.argv[3]
+
+    conn = sqlite3.connect(BASE / "checkpoints.db", check_same_thread=False)
+    agent = build_graph(fetch_fn=load_saved_posting, with_review=True,
+                        checkpointer=SqliteSaver(conn))
+    config = {"configurable": {"thread_id": f"{company}-{job_id}"}}
+
+    if mode == "start":
+        result = agent.invoke(start_state(company, job_id), config)
         paused = result["__interrupt__"][0].value
-        print("\n⏸  Agent paused for your review:")
+        print("\n⏸  Paused for review:")
         for key, value in paused.items():
             print(f"   {key}: {value}")
-        print("   API calls so far:", result["api_calls"])
+        print(f"\nResume any time with:  python graph_agent.py resume {company} {job_id}")
 
-        decision = input("\napprove / fit / not fit: ").strip()
+    elif mode == "resume":
+        decision = ""
+        while decision not in ["approve", "fit", "not fit"]:
+            decision = input("approve / fit / not fit: ").strip().lower()
         note = input("note (why): ").strip()
         result = agent.invoke(Command(resume={"decision": decision, "note": note}), config)
-
-    print("\nAgent verdict:", result["verdict"])
-    print("Your decision:", result["human_decision"], "|", result["human_note"])
-    print("Total API calls:", result["api_calls"])
+        print("\nAgent verdict:", result["verdict"], "| score:", result["score"])
+        print("Your decision:", result["human_decision"], "|", result["human_note"])
+        print("Total API calls:", result["api_calls"])
