@@ -1,5 +1,6 @@
 import csv
-from day2_loop import run_agent, load_saved_posting
+from day2_loop import load_saved_posting
+from graph_agent import run_graph_agent as run_agent
 
 with open("golden_set.csv", encoding="utf-8") as f:
     rows = list(csv.DictReader(f))

@@ -174,6 +174,16 @@ def start_state(company, job_id):
         "failed_dealbreakers": [], "verdict": None,
         "human_decision": None, "human_note": None,
     }
+import uuid
+
+def run_graph_agent(company, job_id, fetch_fn=fetch_posting):
+    agent = build_graph(fetch_fn=fetch_fn, with_review=False)        # unattended, no pause
+    config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+    result = agent.invoke(start_state(company, job_id), config)
+    return {"verdict": result["verdict"], "score": result["score"],
+            "failed_dealbreakers": result["failed_dealbreakers"],
+            "api_calls": result["api_calls"], "assessment": result["assessment"]}
+
 
 if __name__ == "__main__":
     mode, company, job_id = sys.argv[1], sys.argv[2], sys.argv[3]
