@@ -6,7 +6,9 @@ EMOJI = {"fit": "🟢", "borderline": "🟡", "not fit": "🔴"}
 def notify(paused: dict, thread_id: str) -> None:
     url = os.getenv("DISCORD_WEBHOOK_URL")                       # blank 1: which env variable?
     if not url:
-        return                                   # no webhook set up: skip quietly
+        return   
+    if paused["verdict"] not in ("fit", "borderline"):
+        return                                   # clear rejects don't need a ping                                # no webhook set up: skip quietly
 
     text = f"{EMOJI.get(paused['verdict'], '⚪')} **{paused['verdict']}**: {paused['job']} (score {paused['score']})"
     if paused.get("contains_injection"):                             # blank 2: which key flags an injection?
