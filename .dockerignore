@@ -1,0 +1,8 @@
+.env
+venv/
+resume.txt
+profile.json
+checkpoints.db*
+__pycache__/
+eval_results*.csv
+.git
