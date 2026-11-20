@@ -1,5 +1,12 @@
 import sqlite3
 import uuid
+
+import secrets
+from datetime import date
+from fastapi import Depends
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+import os
 from notify import notify
 from fastapi.responses import FileResponse
 
@@ -11,8 +18,35 @@ from langgraph.types import Command
 from graph_agent import build_graph, start_state
 from day2_loop import BASE, fetch_posting
 
-app = FastAPI()
-conn = sqlite3.connect(BASE / "checkpoints.db", check_same_thread=False)
+security = HTTPBasic(auto_error=False)
+APP_PASSWORD = os.getenv("APP_PASSWORD")             # set only on the private deploy
+DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", "0"))     # 0 = no limit
+usage = {"day": date.today(), "count": 0}
+
+
+def check_password(creds: HTTPBasicCredentials | None = Depends(security)):
+    if not APP_PASSWORD:
+        return                                        # demo: no password
+    if creds is None or not secrets.compare_digest(creds.password, APP_PASSWORD):
+        raise HTTPException(status_code=401, detail="Wrong password",
+                            headers={"WWW-Authenticate": "Basic"})
+
+
+def check_limit():
+    if not DAILY_LIMIT:
+        return
+    today = date.today()
+    if usage["day"] != today:                         # new day: reset the counter
+        usage["day"], usage["count"] = today, 0
+    if usage["count"] >= DAILY_LIMIT:
+        raise HTTPException(status_code=429, detail="Daily demo limit reached. Try again tomorrow.")
+    usage["count"] += 1
+
+
+app = FastAPI(dependencies=[Depends(check_password)])  # password guards EVERY route
+
+DB_PATH = os.getenv("DB_PATH", str(BASE / "checkpoints.db"))
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 agent = build_graph(fetch_fn=fetch_posting, with_review=True,
                     checkpointer=SqliteSaver(conn))
 
@@ -31,7 +65,7 @@ class ReviewRequest(BaseModel):
 def home():
     return FileResponse(BASE / "static" / "index.html")
 
-@app.post("/assess")
+@app.post("/assess", dependencies=[Depends(check_limit)])
 def assess(req: AssessRequest):
     thread_id = str(uuid.uuid4())                           # blank 1: a new, unique ticket
     config = {"configurable": {"thread_id": thread_id}}

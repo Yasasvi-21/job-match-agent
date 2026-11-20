@@ -54,6 +54,10 @@ $("assessBtn").onclick = async () => {
     body: JSON.stringify({ company: $("company").value.trim(), job_id: $("job_id").value.trim() }),
   });
   const data = await res.json();
+  if (!res.ok) {
+    $("status").textContent = data.detail;    // shows "Daily demo limit reached…" or "Wrong password"
+    return;
+  }
   if (data.status === "error") {
     $("status").textContent = "Couldn't assess this job. Check the company and job id.";
     return;

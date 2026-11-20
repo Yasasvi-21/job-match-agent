@@ -1,0 +1,27 @@
+Alex Example
+alex@example.com | Open to Relocation | github.com/alex-example
+
+EDUCATION
+MS in Computer Science, Example State University, Expected May 2027
+BS in Computer Science, Example Institute of Technology
+
+SKILLS
+Programming: Python, SQL, JavaScript
+Machine Learning: PyTorch, Scikit-learn, Hugging Face Transformers, LLMs, RAG, Model Evaluation
+Tools: FastAPI, Docker, AWS S3, Git, PostgreSQL
+
+EXPERIENCE
+Machine Learning Intern, Example Analytics Inc. (Jun 2025 - Aug 2025)
+Trained a text classification model with Hugging Face Transformers that improved support-ticket routing accuracy by 12%.
+Built a FastAPI service to serve model predictions and deployed it with Docker on AWS.
+
+Teaching Assistant, Example State University (Jan 2025 - Dec 2025)
+Led weekly lab sessions on Python and data structures for 40 students.
+
+PROJECTS
+Document Q&A Assistant (Mar 2026)
+Built a retrieval-augmented generation system over 200 PDF manuals using sentence embeddings and an LLM, with answers that cite source pages.
+Evaluated retrieval quality with a 50-question test set and improved recall@5 from 0.72 to 0.91.
+
+Movie Recommender (Oct 2025)
+Built a collaborative filtering recommender in PyTorch on the MovieLens dataset.

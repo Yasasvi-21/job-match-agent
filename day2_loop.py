@@ -17,8 +17,8 @@ today = date.today().strftime("%B %d, %Y")
 
 import json
 
-with open(BASE / "profile.json", encoding="utf-8") as f:
-    profile = json.load(f)
+profile_text = os.getenv("PROFILE_JSON") or (BASE / os.getenv("PROFILE_FILE", "profile.json")).read_text(encoding="utf-8")
+profile = json.loads(profile_text)
 
 
 system_prompt = f"""Today's date is {today}. Use it when judging how old a posting is or how much experience the user has.
@@ -45,8 +45,10 @@ Candidate profile (facts the resume does not show; treat them as true):
 client = Anthropic()  # Reads ANTHROPIC_API_KEY from your environment
 
 def get_resume():
-    with open(BASE / "resume.txt", "r", encoding="utf-8") as file:
-        return file.read()
+    text = os.getenv("RESUME_TEXT")                     # private deploy: resume passed in as a secret
+    if text:
+        return text
+    return (BASE / os.getenv("RESUME_FILE", "resume.txt")).read_text(encoding="utf-8")
 
 def fetch_posting(company, job_id):
     url = f"https://boards-api.greenhouse.io/v1/boards/{company}/jobs/{job_id}?content=true"
