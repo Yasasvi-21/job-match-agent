@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Job Match Agent</title>
+<style>
+  body { font-family: system-ui; max-width: 950px; margin: 40px auto; padding: 0 16px; color: #222; }
+  input, button, textarea { font-size: 15px; padding: 8px; margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+  th, td { border: 1px solid #ddd; padding: 6px; vertical-align: top; font-size: 14px; white-space: pre-line; }
+  .fit { color: #1a7f37; } .borderline { color: #b08800; } .notfit { color: #cf222e; }
+  .warn { background: #fff3cd; padding: 8px; border-radius: 6px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>Job Match Agent</h1>
+<input id="company" placeholder="company (e.g. stripe)">
+<input id="job_id" placeholder="job id (e.g. 8144196)">
+<button id="assessBtn">Assess</button>
+<p id="status"></p>
+
+<div id="result" class="hidden">
+  <h2 id="verdict"></h2>
+  <p id="warning" class="warn hidden">⚠️ This posting contains text that looks like instructions to AI tools. Read it yourself before trusting the verdict.</p>
+  <table>
+    <thead><tr><th>Requirement</th><th>Importance</th><th>Status</th><th>Evidence from your resume</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <h3>Your decision</h3>
+  <textarea id="note" rows="2" cols="60" placeholder="note (why)"></textarea><br>
+  <button data-d="approve">Approve</button>
+  <button data-d="fit">Fit</button>
+  <button data-d="not fit">Not fit</button>
+  <p id="final"></p>
+</div>
+
+<script>
+let threadId = null;
+const $ = (id) => document.getElementById(id);
+
+function cell(text) {
+  const td = document.createElement("td");
+  td.textContent = text;                 // textContent, NOT innerHTML: see question below
+  return td;
+}
+
+$("assessBtn").onclick = async () => {
+  $("status").textContent = "Assessing… (about 20 seconds)";
+  $("result").classList.add("hidden");
+  const res = await fetch("/assess", {                       // blank 1: which endpoint?
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ company: $("company").value.trim(), job_id: $("job_id").value.trim() }),
+  });
+  const data = await res.json();
+  if (data.status === "error") {
+    $("status").textContent = "Couldn't assess this job. Check the company and job id.";
+    return;
+  }
+  threadId = data.thread_id;                                   // blank 2: save the ticket
+  $("status").textContent = "";
+  $("verdict").textContent = `${data.verdict}: ${data.job} (score ${data.score})`;
+  $("verdict").className = data.verdict.replace(" ", "");
+  $("warning").classList.toggle("hidden", !data.injection_warning);
+  $("rows").innerHTML = "";
+  for (const r of data.assessment.requirements) {
+    const tr = document.createElement("tr");
+    tr.append(cell(r.requirement), cell(r.importance), cell(r.status), cell(r.evidence.join("\n")));
+    $("rows").append(tr);
+  }
+  $("result").classList.remove("hidden");
+};
+
+document.querySelectorAll("button[data-d]").forEach((btn) => {
+  btn.onclick = async () => {
+    const res = await fetch("/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ thread_id: threadId, decision: btn.dataset.d, note: $("note").value }),
+    });
+    const data = await res.json();
+    $("final").textContent = res.ok
+      ? `Saved: you chose "${data.human_decision}" (agent said "${data.verdict}")`
+      : `Error: ${data.detail}`;
+  };
+});
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import sqlite3
 import uuid
 from notify import notify
+from fastapi.responses import FileResponse
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -26,6 +27,9 @@ class ReviewRequest(BaseModel):
     decision: str
     note: str = ""
 
+@app.get("/")
+def home():
+    return FileResponse(BASE / "static" / "index.html")
 
 @app.post("/assess")
 def assess(req: AssessRequest):
@@ -48,6 +52,9 @@ def review(req: ReviewRequest):
         raise HTTPException(status_code=400, detail="decision must be approve, fit, or not fit")
 
     config = {"configurable": {"thread_id": req.thread_id}}     # blank 2: which ticket?
+    snapshot = agent.get_state(config)
+    if not snapshot.next:                        # nothing is waiting on this ticket
+        raise HTTPException(status_code=404, detail="No paused job with that ticket")
     result = agent.invoke(Command(resume={"decision": req.decision, "note": req.note}), config)
     return {"verdict": result["verdict"], "score": result["score"],
             "human_decision": result["human_decision"], "human_note": result["human_note"]}
