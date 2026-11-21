@@ -19,3 +19,12 @@ def notify(paused: dict, thread_id: str) -> None:
         requests.post(url, json={"content": text}, timeout=5)
     except requests.RequestException:
         pass                                     # a failed ping must never break the assessment
+
+def send(text: str) -> None:
+    url = os.getenv("DISCORD_WEBHOOK_URL")
+    if not url:
+        return
+    try:
+        requests.post(url, json={"content": text}, timeout=5)
+    except requests.RequestException:
+        pass

@@ -1,6 +1,10 @@
 .env
 venv/
-__pycache__/
 resume.txt
 profile.json
 checkpoints.db*
+__pycache__/
+eval_results*.csv
+.git
+seen.db
+scan.log

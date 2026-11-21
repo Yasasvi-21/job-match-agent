@@ -1,0 +1,13 @@
+# Greenhouse board names: the word in boards.greenhouse.io/<name>/jobs/...
+stripe
+databricks
+scaleai
+newsbreak
+airbnb
+gleanwork
+anthropic
+wonderschool
+goodinside
+ampsortation
+impiricus
+bluefishai
