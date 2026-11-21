@@ -11,7 +11,7 @@ def notify(paused: dict, thread_id: str) -> None:
         return                                   # clear rejects don't need a ping                                # no webhook set up: skip quietly
 
     text = f"{EMOJI.get(paused['verdict'], '⚪')} **{paused['verdict']}**: {paused['job']} (score {paused['score']})"
-    if paused.get("contains_injection"):                             # blank 2: which key flags an injection?
+    if paused["injection_warning"]:                             # blank 2: which key flags an injection?
         text += "\n⚠️ Posting contains text that looks like instructions to AI tools"
     text += f"\nReview ticket: `{thread_id}`"
 
